@@ -101,6 +101,7 @@ mod example {
         pg::Pg,
         query_builder::BoxedSelectStatement,
         sql_types::Bool,
+        AppearsOnTable,
         BoolExpressionMethods,
         BoxableExpression,
         ExpressionMethods,
@@ -119,7 +120,7 @@ mod example {
         relations::relations::dsl as relations_dsl,
         subjects::subjects::dsl as subjects_dsl,
     };
-    use crate::models::subject::Subject;
+    use crate::models::{relation::Relation, subject::Subject};
 
     pub struct Conditions {
         pub relation_one: Option<String>,
@@ -162,23 +163,16 @@ mod example {
             relation_three: None,
             relation_four: None,
         };
-        let (condition_count, dyn_where) = create_filter(conditions);
+        let (condition_count, dyn_where) =
+            create_filter_gen::<super::schema::relations::relations::table>(conditions);
 
-        let query = subjects_dsl::subjects
-            .inner_join(
-                many_to_manys_dsl::many_to_manys
-                    .on(many_to_manys_dsl::subject_id.eq(subjects_dsl::id)),
-            )
-            .inner_join(
-                relations_dsl::relations.on(many_to_manys_dsl::relation_id.eq(relations_dsl::id)),
-            )
-            .filter(subjects_dsl::name.eq_any(&["foo", "bar"]))
+        let query = relations_dsl::relations
             .filter(dyn_where)
-            .select(Subject::as_select())
-            .order(subjects_dsl::id.desc())
+            .select(Relation::as_select())
+            .order(relations_dsl::id.desc())
             .limit(2);
 
-        let result = query.load::<Subject>(&mut connection).await?;
+        let result = query.load::<Relation>(&mut connection).await?;
         Ok(())
     }
 
@@ -195,7 +189,7 @@ mod example {
             relation_three: None,
             relation_four: None,
         };
-        let (condition_count, dyn_where) = create_filter(conditions);
+        let (condition_count, dyn_where) = create_filter_gen(conditions);
 
         let query = subjects_dsl::subjects
             .inner_join(
@@ -231,6 +225,31 @@ mod example {
         i64,
         Box<dyn BoxableExpression<RelationJoin, Pg, (), is_aggregate::No, SqlType = Bool>>,
     ) {
+        let mut condition_count = 0;
+        let mut where_clause = Box::new(diesel::dsl::sql::<Bool>("TRUE"))
+            as Box<dyn BoxableExpression<_, _, (), _, SqlType = Bool>>;
+        for (key, value) in conditions.into_iter() {
+            condition_count += 1;
+            where_clause = Box::new(
+                where_clause.or(relations_dsl::key
+                    .eq(key.to_string())
+                    .and(relations_dsl::value.eq(value))),
+            ) as Box<dyn BoxableExpression<_, _, (), _, SqlType = Bool>>
+        }
+        (condition_count, where_clause)
+    }
+
+    fn create_filter_gen<T>(
+        conditions: Conditions,
+    ) -> (
+        i64,
+        Box<dyn BoxableExpression<T, Pg, (), is_aggregate::No, SqlType = Bool>>,
+    )
+    where
+        super::schema::relations::relations::columns::key: diesel::SelectableExpression<T>,
+        super::schema::relations::relations::columns::value: diesel::SelectableExpression<T>,
+        T: 'static,
+    {
         let mut condition_count = 0;
         let mut where_clause = Box::new(diesel::dsl::sql::<Bool>("TRUE"))
             as Box<dyn BoxableExpression<_, _, (), _, SqlType = Bool>>;
