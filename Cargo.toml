@@ -1,0 +1,12 @@
+[package]
+name = "dyn_where"
+edition = "2021"
+
+[lib]
+name = "dyn_where"
+crate-type = ["lib"]
+
+[dependencies]
+anyhow = "1.0.95"
+diesel = { version = "2.2.7"}
+diesel-async = { version = "0.5.2", features = ["postgres", "bb8"]}
