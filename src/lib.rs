@@ -150,7 +150,7 @@ mod example {
         }
     }
 
-    async fn dynamic_filter_many_to_many_simple() -> Result<()> {
+    pub async fn dynamic_filter_many_to_many_simple() -> Result<Vec<Relation>> {
         let config =
             AsyncDieselConnectionManager::<AsyncPgConnection>::new("postgres://localhost:5432/db");
         let pool = Pool::builder().max_size(10).build(config).await?;
@@ -172,11 +172,10 @@ mod example {
             .order(relations_dsl::id.desc())
             .limit(2);
 
-        let result = query.load::<Relation>(&mut connection).await?;
-        Ok(())
+        Ok(query.load::<Relation>(&mut connection).await?)
     }
 
-    async fn dynamic_filter_many_to_many() -> Result<()> {
+    pub async fn dynamic_filter_many_to_many() -> Result<Vec<Subject>>{
         let config =
             AsyncDieselConnectionManager::<AsyncPgConnection>::new("postgres://localhost:5432/db");
         let pool = Pool::builder().max_size(10).build(config).await?;
@@ -207,8 +206,7 @@ mod example {
             .order(subjects_dsl::id.desc())
             .limit(2);
 
-        let result = query.load::<Subject>(&mut connection).await?;
-        Ok(())
+        Ok(query.load::<Subject>(&mut connection).await?)
     }
 
     type RelationJoin = diesel::dsl::InnerJoinQuerySource<
